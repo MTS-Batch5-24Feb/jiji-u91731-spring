@@ -1,1 +1,1 @@
-read meile
+read me file
