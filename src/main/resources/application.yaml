@@ -1,0 +1,276 @@
+spring:
+  main:
+    allow-bean-definition-overriding: true
+    allow-circular-references: true
+  application:
+    name: task-management-service
+  cloud:
+    config:
+      enabled: false
+      import-check:
+        enabled: false
+      retry:
+        initial-interval: 1000
+        max-attempts: 6
+        max-interval: 2000
+        multiplier: 1.1
+  
+  datasource:
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  h2:
+    console:
+      enabled: true
+  
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+        format_sql: true
+        # JPA optimization properties
+        jdbc.batch_size: 50
+        order_inserts: true
+        order_updates: true
+        jdbc.batch_versioned_data: true
+        # Query optimization
+        query.in_clause_parameter_padding: true
+        # Second-level cache disabled due to Java 21 compatibility
+        cache.use_second_level_cache: false
+        generate_statistics: false
+    open-in-view: false
+  
+  # Cache configuration - disabled due to Java 21 compatibility
+  cache:
+    type: simple
+  
+# Token storage configuration - using database only
+app:
+  token:
+    store:
+      type: database  # Using database-based token storage
+  
+  # Web configuration
+  web:
+    resources:
+      add-mappings: false
+
+  # Application Security Configuration
+  max:
+    failed:
+      attempts: 5  # Maximum failed login attempts before lockout
+  account:
+    lockout:
+      duration: 900  # 15 minutes in seconds
+
+  # Kafka Configuration - using AWS MSK
+  kafka:
+    bootstrap-servers: 54.234.105.244:9092
+    
+    # Producer Configuration
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      acks: all                              # Wait for all replicas
+      retries: 3                             # Retry 3 times
+      retry-backoff-ms: 100                  # 100ms backoff
+      enable-idempotence: true               # Idempotent producer
+      compression-type: snappy                # Snappy compression
+      batch-size: 16384                       # 16KB batch
+      linger-ms: 5                            # Wait 5ms for batching
+      buffer-memory: 33554432                 # 32MB buffer
+      max-block-ms: 60000                     # 60s max block
+      delivery-timeout-ms: 120000             # 120s delivery timeout
+    
+    # Consumer Configuration
+    consumer:
+      group-id: task-management-group
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      enable-auto-commit: false               # Manual commit
+      max-poll-records: 500                   # 500 records per poll
+      max-poll-interval-ms: 300000            # 5 minute timeout
+      session-timeout-ms: 10000               # 10 second session
+      heartbeat-interval-ms: 3000             # 3 second heartbeat
+      fetch-min-bytes: 1                      # Min bytes to fetch
+      fetch-max-wait-ms: 500                  # Max wait time
+      properties:
+        spring.json.trusted.packages: "*"
+        spring.json.value.default.type: "com.example.demo.dto.KafkaTaskMessageDTO"
+    
+    # Listener Configuration
+    listener:
+      ack-mode: manual_immediate              # Manual acknowledgment
+      poll-timeout: 3000                       # 3 second poll timeout
+      concurrency: 3                           # 3 concurrent consumers
+    
+    # Admin Configuration
+    admin:
+      fail-fast: false
+
+  # Retry Topic Configuration - disabled
+  retry:
+    topic:
+      enabled: false
+
+  # Spring Cloud Stream Configuration - disabled for now
+  cloud:
+    stream:
+      enabled: false
+
+server:
+  port: 8080
+
+# Eureka Client Configuration - disabled for local development
+eureka:
+  client:
+    enabled: false
+  instance:
+    prefer-ip-address: true
+    instance-id: ${spring.application.name}:${server.port}
+    hostname: localhost
+  error:
+    # Disable default error page
+    whitelabel:
+      enabled: false
+    # Include error details in response (be careful in production)
+    include-message: always
+    include-binding-errors: always
+    include-stacktrace: on_param
+    include-exception: false
+
+# JWT Configuration
+jwt:
+  secret: mySecretKey123456789012345678901234567890
+  expiration: 86400  # 24 hours in seconds
+  refresh:
+    expiration: 604800  # 7 days in seconds
+
+# Logging configuration
+logging:
+  level:
+    root: INFO
+    "[com.example.demo]": DEBUG
+    "[org.hibernate.SQL]": DEBUG
+    "[org.hibernate.type.descriptor.sql.BasicBinder]": TRACE
+    "[REQUEST_LOGGER]": INFO
+  
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+  
+  file:
+    name: logs/demo-app.log
+  
+  logback:
+    rollingpolicy:
+      max-file-size: 10MB
+      total-size-cap: 100MB
+      max-history: 30
+
+# Actuator configuration for health checks and monitoring
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,env,beans,caches,configprops,circuitbreakers
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: when-authorized
+      show-components: always
+    metrics:
+      enabled: true
+    caches:
+      enabled: true
+    circuitbreakers:
+      enabled: true
+  health:
+    db:
+      enabled: true
+    circuitbreakers:
+      enabled: true
+  metrics:
+    enable:
+      jvm: true
+      system: true
+      logback: true
+      process: true
+
+# Resilience4j Circuit Breaker Configuration
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
+        permittedNumberOfCallsInHalfOpenState: 3
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+        waitDurationInOpenState: 5s
+        failureRateThreshold: 50
+        eventConsumerBufferSize: 10
+        registerHealthIndicator: true
+      slowCall:
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
+        permittedNumberOfCallsInHalfOpenState: 3
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+        waitDurationInOpenState: 5s
+        slowCallRateThreshold: 100
+        slowCallDurationThreshold: 2s
+        registerHealthIndicator: true
+      highThreshold:
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
+        permittedNumberOfCallsInHalfOpenState: 3
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+        waitDurationInOpenState: 10s
+        failureRateThreshold: 80
+        registerHealthIndicator: true
+      lowThreshold:
+        slidingWindowSize: 5
+        minimumNumberOfCalls: 3
+        permittedNumberOfCallsInHalfOpenState: 2
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+        waitDurationInOpenState: 3s
+        failureRateThreshold: 30
+        registerHealthIndicator: true
+    instances:
+      backendA:
+        baseConfig: default
+      backendB:
+        baseConfig: slowCall
+      backendC:
+        baseConfig: highThreshold
+      backendD:
+        baseConfig: lowThreshold
+      backendE:
+        baseConfig: default
+        waitDurationInOpenState: 1s
+        failureRateThreshold: 60
+  retry:
+    configs:
+      default:
+        maxAttempts: 3
+        waitDuration: 500ms
+        retryExceptions:
+          - org.springframework.web.client.HttpServerErrorException
+          - java.io.IOException
+        ignoreExceptions:
+          - com.example.demo.exception.BusinessException
+    instances:
+      retryBackend:
+        baseConfig: default
+  timelimiter:
+    configs:
+      default:
+        timeoutDuration: 3s
+        cancelRunningFuture: true
+    instances:
+      timeoutBackend:
+        baseConfig: default
