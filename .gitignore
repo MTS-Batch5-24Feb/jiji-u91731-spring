@@ -7,7 +7,6 @@
 # BlueJ files
 *.ctxt
 
-target/*
 # Mobile Tools for Java (J2ME)
 .mtj.tmp/
 
@@ -23,10 +22,3 @@ target/*
 # virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
 hs_err_pid*
 replay_pid*
-target/classes/seed-dev.sql
-target/classes/seed-performance.sql
-target/classes/seed-test.sql
-target/classes/application.yaml
-target/classes/application.yaml
-~$ckend_Training_Program_daily_tasks.docx
-target/maven-status/maven-compiler-plugin/compile/default-compile/inputFiles.lst
